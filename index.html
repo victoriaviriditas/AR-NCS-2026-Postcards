@@ -20,7 +20,6 @@
       color: #fff;
     }
 
-    /* Fullscreen AR container */
     #ar-container {
       position: fixed;
       inset: 0;
@@ -35,6 +34,12 @@
       justify-content: center;
       background: radial-gradient(circle at top, rgba(255,255,255,0.12), rgba(0,0,0,0.95));
       z-index: 20;
+      transition: opacity 0.25s ease-out;
+    }
+
+    #ui-start.hidden {
+      opacity: 0;
+      pointer-events: none;
     }
 
     #ui-start button {
@@ -57,95 +62,7 @@
       box-shadow: 0 6px 16px rgba(0,0,0,0.6);
     }
 
-    #ui-start.hidden {
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    /* Text overlay that appears when the postcard is detected */
-    #overlay {
-      position: fixed;
-      inset: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      padding: 1.5rem;
-      box-sizing: border-box;
-      pointer-events: none; /* allow camera interactions only */
-      z-index: 10;
-      opacity: 0;
-      transition: opacity 0.4s ease-out;
-    }
-
-    #overlay.visible {
-      opacity: 1;
-    }
-
-    .overlay-inner {
-      max-width: 720px;
-      width: 100%;
-      background: rgba(0, 0, 0, 0.45);
-      border-radius: 24px;
-      padding: 1.75rem 1.5rem;
-      backdrop-filter: blur(10px);
-      box-shadow: 0 24px 60px rgba(0,0,0,0.75);
-    }
-
-    /* Main title (welcome text) */
-    #welcome-text {
-      font-size: clamp(1.1rem, 2.4vw, 1.5rem);
-      line-height: 1.5;
-      font-weight: 500;
-      margin-bottom: 1.25rem;
-      text-transform: none;
-      letter-spacing: 0.03em;
-      display: inline-block;
-      white-space: normal;
-    }
-
-    /* Each letter will be wrapped in a span for the left-to-right fade */
-    #welcome-text span {
-      opacity: 0;
-      transform: translateY(0.25em);
-      display: inline-block;
-      animation: letterFade 0.7s forwards;
-    }
-
-    @keyframes letterFade {
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    /* Secondary line that changes text every 3 seconds */
-    #session-line {
-      font-size: clamp(0.95rem, 2vw, 1.2rem);
-      font-weight: 400;
-      margin-top: 0.25rem;
-      min-height: 1.2em;
-      opacity: 0;
-      transform: translateY(0.25em);
-      transition: opacity 0.3s ease-out, transform 0.3s ease-out;
-    }
-
-    #session-line.visible {
-      opacity: 1;
-      transform: translateY(0);
-    }
-
-    /* Little hint at the bottom */
-    #hint {
-      margin-top: 1rem;
-      font-size: 0.75rem;
-      opacity: 0.75;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-
-    /* Fallback message if camera permission fails */
+    /* Error message if camera fails */
     #error-message {
       position: fixed;
       inset: 0;
@@ -181,32 +98,38 @@
       embedded
       id="scene">
 
-      <a-assets>
-        <!-- Optionally keep a copy of the postcard image here (not required for tracking itself) -->
-        <!-- <img id="postcard" src="./Copy-of-AR-Postcard-1.png" /> -->
-      </a-assets>
-
       <!-- Camera for MindAR -->
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-      <!-- We don't need to display anything in 3D for this version;
-           we just use the image-target events to drive the HTML overlay. -->
-      <a-entity mindar-image-target="targetIndex: 0" id="postcard-target"></a-entity>
+      <!-- Image target with 3D text children -->
+      <a-entity mindar-image-target="targetIndex: 0" id="postcard-target">
+
+        <!-- Main welcome text (3D, anchored above centre of postcard) -->
+        <a-entity
+          id="welcomeText3D"
+          position="0 0.25 0"
+          text="value: ; align: center; color: #FFFFFF; width: 1.8; wrapCount: 40"
+          material="opacity: 0; transparent: true"
+          animation__fadein="property: material.opacity; from: 0; to: 1; dur: 2000; easing: easeOutQuad; startEvents: fadein">
+        </a-entity>
+
+        <!-- Changing session line underneath -->
+        <a-entity
+          id="sessionText3D"
+          position="0 -0.05 0"
+          text="value: ; align: center; color: #FFFFFF; width: 1.8; wrapCount: 40"
+          material="opacity: 0; transparent: true"
+          animation__fadein="property: material.opacity; from: 0; to: 1; dur: 400; easing: easeOutQuad; startEvents: fadein"
+          animation__fadeout="property: material.opacity; from: 1; to: 0; dur: 250; easing: easeInQuad; startEvents: fadeout">
+        </a-entity>
+
+      </a-entity>
     </a-scene>
   </div>
 
   <!-- Start UI (user tap to allow camera) -->
   <div id="ui-start">
     <button id="start-button">Start AR Experience</button>
-  </div>
-
-  <!-- Text overlay -->
-  <div id="overlay">
-    <div class="overlay-inner">
-      <div id="welcome-text"></div>
-      <div id="session-line"></div>
-      <div id="hint">Point your camera at the postcard front to keep the text anchored.</div>
-    </div>
   </div>
 
   <!-- Error message -->
@@ -223,93 +146,80 @@
     const WELCOME_MESSAGE =
       "Welcome to the 24th Biennial Congress of the New Chaucer Society.";
 
-    // Session titles for Day 1.
-    // TODO: Replace these placeholders with the actual session titles from your programme.
-   const SESSION_TITLES = [
-  "Today, we have",
-  "Queer Medieval Ecologies (CE)",
-  "Medieval Age I: Childhood, Childishness, and Infantilization in Medieval Literature",
-  "Varieties of English Religious Experience",
-  "Literature and Medieval Scientific Knowledge",
-  "Modernist Medievalisms",
-  "The Time of Adaptations",
-  "Making Sense of Medieval Faces I",
-  "It’s Not Boring, It’s…: Why Do We Teach Old Stuff? (Tw/tMLT)",
-  "It’s Not Boring, It’s…: Why Do–Or Should–We Teach Literature? (Tw/tMLT)",
-  "Medieval Age II: Age and Aging in Late Medieval Literature",
-  "Nineteenth-Century Medievalisms",
-  "Making Sense of Medieval Faces II",
-  "Piety in Late Medieval England I",
-  "Limits of Translation",
-  "Medieval Anticlimax I (Pre)",
-  "Dramatic Ecologies (CE)",
-  "Understanding the Colonizer/Re-Imagining the Medieval I: Indigenous Medievalism (UM)",
-  "Stones and Bones in Medieval European Literature I (CE)",
-  "Middle English Beyond French and Latin I: The Politics of Language (MM)",
-  "Medieval Anticlimax II (Pre)",
-  "Piety in Late Medieval England II",
-  "Medieval Temporalities I: Synchronous and Asynchronous Times",
-  "The Debating Game: Rhetoric, Play, and Performativity (Tw/tMLT)",
-  "The Craft So Fast to Learn: Modular Haiku Comics"
-];
+    const SESSION_TITLES = [
+      "Today, we have",
+      "Queer Medieval Ecologies (CE)",
+      "Medieval Age I: Childhood, Childishness, and Infantilization in Medieval Literature",
+      "Varieties of English Religious Experience",
+      "Literature and Medieval Scientific Knowledge",
+      "Modernist Medievalisms",
+      "The Time of Adaptations",
+      "Making Sense of Medieval Faces I",
+      "It’s Not Boring, It’s…: Why Do We Teach Old Stuff? (Tw/tMLT)",
+      "It’s Not Boring, It’s…: Why Do–Or Should–We Teach Literature? (Tw/tMLT)",
+      "Medieval Age II: Age and Aging in Late Medieval Literature",
+      "Nineteenth-Century Medievalisms",
+      "Making Sense of Medieval Faces II",
+      "Piety in Late Medieval England I",
+      "Limits of Translation",
+      "Medieval Anticlimax I (Pre)",
+      "Dramatic Ecologies (CE)",
+      "Understanding the Colonizer/Re-Imagining the Medieval I: Indigenous Medievalism (UM)",
+      "Stones and Bones in Medieval European Literature I (CE)",
+      "Middle English Beyond French and Latin I: The Politics of Language (MM)",
+      "Medieval Anticlimax II (Pre)",
+      "Piety in Late Medieval England II",
+      "Medieval Temporalities I: Synchronous and Asynchronous Times",
+      "The Debating Game: Rhetoric, Play, and Performativity (Tw/tMLT)",
+      "The Craft So Fast to Learn: Modular Haiku Comics"
+    ];
 
     const SESSION_INTERVAL_MS = 3000; // 3 seconds
 
-    // === Text animation helpers ===
+    let sessionTickerInterval = null;
+    let tickerStarted = false;
 
-    function buildWelcomeText() {
-      const container = document.getElementById("welcome-text");
-      container.innerHTML = "";
-      const chars = WELCOME_MESSAGE.split("");
-      chars.forEach((ch, index) => {
-        const span = document.createElement("span");
-        span.textContent = ch;
-        // stagger so it fades left-to-right
-        const delay = 0.03 * index; // seconds
-        span.style.animationDelay = delay + "s";
-        container.appendChild(span);
-      });
-    }
+    function startSessionTicker(sessionEntity) {
+      if (tickerStarted) return;
+      tickerStarted = true;
 
-    function startSessionTicker() {
-      const sessionLine = document.getElementById("session-line");
       let index = 0;
 
       function showNext() {
-        sessionLine.classList.remove("visible");
-        // small timeout to let fade-out (if any) happen
+        // fade out, change text, fade in
+        sessionEntity.emit("fadeout");
         setTimeout(() => {
-          sessionLine.textContent = SESSION_TITLES[index];
-          sessionLine.classList.add("visible");
+          sessionEntity.setAttribute("text", "value", SESSION_TITLES[index]);
+          sessionEntity.emit("fadein");
           index = (index + 1) % SESSION_TITLES.length;
-        }, 250);
+        }, 260);
       }
 
-      // initial delay gives the welcome text a moment to complete its fade
+      // slight delay so the welcome text can fade first
       setTimeout(() => {
         showNext();
-        setInterval(showNext, SESSION_INTERVAL_MS);
+        sessionTickerInterval = setInterval(showNext, SESSION_INTERVAL_MS);
       }, 2000);
     }
-
-    // === AR / MindAR handling ===
 
     window.addEventListener("load", () => {
       const sceneEl = document.getElementById("scene");
       const startButton = document.getElementById("start-button");
       const startOverlay = document.getElementById("ui-start");
-      const htmlOverlay = document.getElementById("overlay");
       const errorMessage = document.getElementById("error-message");
       const targetEntity = document.getElementById("postcard-target");
 
-      buildWelcomeText();
-      startSessionTicker();
+      const welcomeText3D = document.getElementById("welcomeText3D");
+      const sessionText3D = document.getElementById("sessionText3D");
 
-      // Start AR on button tap (required on iOS / many mobile browsers)
+      // Set the welcome message (spaces preserved normally here)
+      welcomeText3D.setAttribute("text", "value", WELCOME_MESSAGE);
+
+      // Start AR on button tap
       startButton.addEventListener("click", async () => {
         try {
           const mindarSystem = sceneEl.systems["mindar-image-system"];
-          await mindarSystem.start();   // this triggers camera access & tracking
+          await mindarSystem.start();
           startOverlay.classList.add("hidden");
         } catch (err) {
           console.error(err);
@@ -317,15 +227,19 @@
         }
       });
 
-      // When the postcard image is detected, show the overlay.
+      // When the postcard is found, show / animate the 3D text
       targetEntity.addEventListener("targetFound", () => {
-        htmlOverlay.classList.add("visible");
+        // Fade in welcome text
+        welcomeText3D.emit("fadein");
+        // Start the ticker for the line below
+        startSessionTicker(sessionText3D);
       });
 
-      // When tracking is lost, you can either hide or keep the overlay.
-      // Here we fade it out when the postcard is no longer visible.
+      // When postcard is lost, optionally stop ticker or fade text out
       targetEntity.addEventListener("targetLost", () => {
-        htmlOverlay.classList.remove("visible");
+        // If you want the text to vanish when they move away:
+        welcomeText3D.setAttribute("material", "opacity", 0);
+        sessionText3D.setAttribute("material", "opacity", 0);
       });
     });
   </script>
