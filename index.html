@@ -192,8 +192,9 @@
 
   // 🟦 Move the text panel near Chaucer’s hand
   // Adjust these numbers to fine-tune its placement relative to the postcard.
-  textPanel.position.set(0.25, -0.05, 0.09);
-  textPanel.rotation.y = THREE.MathUtils.degToRad(-8);
+  // Centered at the bottom, slightly in front of the card
+textPanel.position.set(0, -0.33, 0.11);
+textPanel.rotation.y = 0;
   anchor.group.add(textPanel);
 
   // ---- Fade-in control ----
