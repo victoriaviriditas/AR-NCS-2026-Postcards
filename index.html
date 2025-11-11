@@ -90,160 +90,181 @@
       <button id="startButton">Start AR</button>
     </div>
 
-    <script type="module">
-      import * as THREE from "three";
-      import { MindARThree } from "mindar-image-three";
+   <script type="module">
+  import * as THREE from "three";
+  import { MindARThree } from "mindar-image-three";
 
-      const container = document.querySelector("#container");
-      const startButton = document.querySelector("#startButton");
+  const container = document.querySelector("#container");
+  const startButton = document.querySelector("#startButton");
 
-      // Set up MindAR + Three.js
-      const mindarThree = new MindARThree({
-        container,
-        imageTargetSrc: "./targets.mind", // your postcard target file
-      });
+  // 1) ADD FILTERING SETTINGS HERE TO REDUCE JITTER
+  const mindarThree = new MindARThree({
+    container,
+    imageTargetSrc: "./targets.mind",
+    // Smoothing: smaller filterMinCF = less jitter, lower filterBeta = smoother but slightly slower response
+    filterMinCF: 0.0001,
+    filterBeta: 0.001,
+  });
 
-      const { renderer, scene, camera } = mindarThree;
+  const { renderer, scene, camera } = mindarThree;
 
-      // A little ambient + directional light (for future shaded materials)
-      const light = new THREE.DirectionalLight(0xffffff, 0.8);
-      light.position.set(0, 1, 1);
-      scene.add(light);
-      scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+  // Slightly reduce renderer size to avoid any device weirdness
+  renderer.setSize(window.innerWidth, window.innerHeight);
 
-      // This anchor attaches content to the first target in targets.mind
-      const anchor = mindarThree.addAnchor(0);
+  const light = new THREE.DirectionalLight(0xffffff, 0.8);
+  light.position.set(0, 1, 1);
+  scene.add(light);
+  scene.add(new THREE.AmbientLight(0xffffff, 0.4));
 
-      // ----- BASE POSTCARD PLANE (flush with the real postcard) -----
-      const cardGeometry = new THREE.PlaneGeometry(1, 0.65); // aspect: tweak if needed
-      const cardMaterial = new THREE.MeshBasicMaterial({
-        color: 0x222222,
-        transparent: true,
-        opacity: 0.0, // invisible, but defines the plane for reference
-      });
-      const cardMesh = new THREE.Mesh(cardGeometry, cardMaterial);
-      cardMesh.position.set(0, 0, 0); // sits on the marker
-      anchor.group.add(cardMesh);
+  const anchor = mindarThree.addAnchor(0);
 
-      // ----- CHAUCER CUT-OUT PLANE (popping out of the postcard) -----
-      const textureLoader = new THREE.TextureLoader();
-      const chaucerTexture = textureLoader.load("./chaucer.png");
-      const chaucerMaterial = new THREE.MeshBasicMaterial({
-        map: chaucerTexture,
-        transparent: true,
-        side: THREE.DoubleSide,
-      });
+  // ---- BASE POSTCARD PLANE ----
+  const cardGeometry = new THREE.PlaneGeometry(1, 0.65);
+  const cardMaterial = new THREE.MeshBasicMaterial({
+    color: 0x222222,
+    transparent: true,
+    opacity: 0.0,
+  });
+  const cardMesh = new THREE.Mesh(cardGeometry, cardMaterial);
+  cardMesh.position.set(0, 0, 0);
+  anchor.group.add(cardMesh);
 
-      // Adjust aspect ratio here to match your Chaucer PNG
-      const chaucerWidth = 0.55;
-      const chaucerHeight = 0.8;
-      const chaucerGeometry = new THREE.PlaneGeometry(
-        chaucerWidth,
-        chaucerHeight
-      );
-      const chaucerMesh = new THREE.Mesh(chaucerGeometry, chaucerMaterial);
+  // ---- CHAUCER CUT-OUT (A BIT SMALLER & CLOSER TO THE CARD) ----
+  const textureLoader = new THREE.TextureLoader();
+  const chaucerTexture = textureLoader.load("./chaucer.png");
+  const chaucerMaterial = new THREE.MeshBasicMaterial({
+    map: chaucerTexture,
+    transparent: true,
+    side: THREE.DoubleSide,
+  });
 
-      // Slightly above centre, a little forward (towards the viewer)
-      chaucerMesh.position.set(0.05, 0.05, 0.12);
-      // Rotate a bit so he feels like he’s turning towards the viewer
-      chaucerMesh.rotation.y = THREE.MathUtils.degToRad(-10);
+  // Slightly smaller so it feels less "zoomed in"
+  const chaucerWidth = 0.4;
+  const chaucerHeight = 0.6;
+  const chaucerGeometry = new THREE.PlaneGeometry(
+    chaucerWidth,
+    chaucerHeight
+  );
+  const chaucerMesh = new THREE.Mesh(chaucerGeometry, chaucerMaterial);
 
-      anchor.group.add(chaucerMesh);
+  // Closer to the card (less distance = less visible wobble)
+  chaucerMesh.position.set(0.03, 0.05, 0.08);
+  chaucerMesh.rotation.y = THREE.MathUtils.degToRad(-8);
+  anchor.group.add(chaucerMesh);
 
-      // ----- FLOATING TEXT PANEL (canvas texture on a plane) -----
-      function createTextPanel() {
-        const canvas = document.createElement("canvas");
-        canvas.width = 2048;
-        canvas.height = 512;
-        const ctx = canvas.getContext("2d");
+  // ---- TEXT PANEL (WELCOME MESSAGE) ----
+  function createTextPanel() {
+    const canvas = document.createElement("canvas");
+    canvas.width = 2048;
+    canvas.height = 512;
+    const ctx = canvas.getContext("2d");
 
-        // Transparent background
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // Panel background
-        ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
-        ctx.roundRect(40, 40, canvas.width - 80, canvas.height - 80, 60);
-        ctx.fill();
+    // Panel background
+    ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
+    ctx.roundRect(40, 40, canvas.width - 80, canvas.height - 80, 60);
+    ctx.fill();
 
-        // Gold-ish border
-        ctx.lineWidth = 10;
-        ctx.strokeStyle = "#f5e3a1";
-        ctx.stroke();
+    // Border
+    ctx.lineWidth = 10;
+    ctx.strokeStyle = "#f5e3a1";
+    ctx.stroke();
 
-        // Text
-        ctx.fillStyle = "#ffffff";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
+    // Text
+    ctx.fillStyle = "#ffffff";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
 
-        ctx.font = "bold 90px 'Georgia', 'Times New Roman', serif";
-        ctx.fillText(
-          "Welcome to the University",
-          canvas.width / 2,
-          canvas.height / 2 - 70
-        );
+    ctx.font = "bold 90px 'Georgia', 'Times New Roman', serif";
+    ctx.fillText(
+      "Welcome to the University",
+      canvas.width / 2,
+      canvas.height / 2 - 70
+    );
 
-        ctx.font = "bold 90px 'Georgia', 'Times New Roman', serif";
-        ctx.fillText(
-          "of Freiburg for NCS 2026",
-          canvas.width / 2,
-          canvas.height / 2 + 50
-        );
+    ctx.font = "bold 90px 'Georgia', 'Times New Roman', serif";
+    ctx.fillText(
+      "of Freiburg for NCS 2026!",
+      canvas.width / 2,
+      canvas.height / 2 + 50
+    );
 
-        const texture = new THREE.CanvasTexture(canvas);
-        texture.needsUpdate = true;
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.needsUpdate = true;
 
-        const material = new THREE.MeshBasicMaterial({
-          map: texture,
-          transparent: true,
-          side: THREE.DoubleSide,
-        });
+    const material = new THREE.MeshBasicMaterial({
+      map: texture,
+      transparent: true,
+      opacity: 0, // START INVISIBLE (for fade-in)
+      side: THREE.DoubleSide,
+    });
 
-        const aspect = canvas.width / canvas.height;
-        const width = 0.9;
-        const height = width / aspect;
+    const aspect = canvas.width / canvas.height;
+    const width = 0.75; // a bit smaller
+    const height = width / aspect;
+    const geometry = new THREE.PlaneGeometry(width, height);
+    const mesh = new THREE.Mesh(geometry, material);
+    return mesh;
+  }
 
-        const geometry = new THREE.PlaneGeometry(width, height);
-        const mesh = new THREE.Mesh(geometry, material);
-        return mesh;
+  const textPanel = createTextPanel();
+  textPanel.position.set(0, -0.33, 0.11);
+  anchor.group.add(textPanel);
+
+  // ---- FADE-IN CONTROL FOR TEXT ----
+  let fadeInText = false;
+  let textOpacity = 0;
+
+  anchor.onTargetFound = () => {
+    fadeInText = true;
+    textOpacity = 0;
+    textPanel.material.opacity = 0;
+  };
+
+  anchor.onTargetLost = () => {
+    fadeInText = false;
+    textOpacity = 0;
+    textPanel.material.opacity = 0;
+  };
+
+  // ---- ANIMATION LOOP ----
+  const clock = new THREE.Clock();
+
+  const start = async () => {
+    document.querySelector("#ui-overlay").style.display = "none";
+    document.querySelector("#hint").style.display = "none";
+
+    await mindarThree.start();
+
+    renderer.setAnimationLoop(() => {
+      const delta = clock.getDelta();
+      const t = clock.elapsedTime;
+
+      // Small, gentle bobbing – toned down so it feels less erratic
+      const zBase = 0.08;
+      const zOffset = Math.sin(t * 1.5) * 0.01;
+      chaucerMesh.position.z = zBase + zOffset;
+      textPanel.position.z = 0.11 + zOffset * 1.1;
+
+      chaucerMesh.rotation.y =
+        THREE.MathUtils.degToRad(-8) + Math.sin(t * 1.2) * 0.04;
+
+      // TEXT FADE-IN (around 1 second)
+      if (fadeInText && textOpacity < 1) {
+        textOpacity += delta * 1.2;
+        if (textOpacity > 1) textOpacity = 1;
+        textPanel.material.opacity = textOpacity;
       }
 
-      const textPanel = createTextPanel();
-      textPanel.position.set(0, -0.35, 0.16); // below Chaucer, slightly more forward
-      anchor.group.add(textPanel);
+      renderer.render(scene, camera);
+    });
+  };
 
-      // ----- Simple animation to emphasise "coming out" effect -----
-      let clock = new THREE.Clock();
-
-      anchor.group.rotation.x = 0; // just in case
-
-      const start = async () => {
-        document.querySelector("#ui-overlay").style.display = "none";
-        document.querySelector("#hint").style.display = "none";
-
-        await mindarThree.start();
-        renderer.setAnimationLoop(() => {
-          const t = clock.getElapsedTime();
-
-          // Gentle bobbing out of the postcard
-          const zBase = 0.12;
-          const zOffset = Math.sin(t * 2.0) * 0.015;
-          chaucerMesh.position.z = zBase + zOffset;
-          textPanel.position.z = 0.16 + zOffset * 1.3;
-
-          // Subtle rotation “gesture”
-          chaucerMesh.rotation.y =
-            THREE.MathUtils.degToRad(-10) + Math.sin(t * 1.5) * 0.05;
-
-          renderer.render(scene, camera);
-        });
-      };
-
-      startButton.addEventListener("click", () => {
-        start().catch((err) => {
-          console.error("Error starting MindAR", err);
-          alert("Could not start AR (check camera permissions).");
-        });
-      });
-    </script>
-  </body>
-</html>
+  startButton.addEventListener("click", () => {
+    start().catch((err) => {
+      console.error("Error starting MindAR", err);
+      alert("Could not start AR (check camera permissions).");
+    });
+  });
+</script>
