@@ -90,25 +90,22 @@
       <button id="startButton">Start AR</button>
     </div>
 
-   <script type="module">
+<script type="module">
   import * as THREE from "three";
   import { MindARThree } from "mindar-image-three";
 
   const container = document.querySelector("#container");
   const startButton = document.querySelector("#startButton");
 
-  // 1) ADD FILTERING SETTINGS HERE TO REDUCE JITTER
+  // Stabilise tracking
   const mindarThree = new MindARThree({
     container,
     imageTargetSrc: "./targets.mind",
-    // Smoothing: smaller filterMinCF = less jitter, lower filterBeta = smoother but slightly slower response
     filterMinCF: 0.0001,
     filterBeta: 0.001,
   });
 
   const { renderer, scene, camera } = mindarThree;
-
-  // Slightly reduce renderer size to avoid any device weirdness
   renderer.setSize(window.innerWidth, window.innerHeight);
 
   const light = new THREE.DirectionalLight(0xffffff, 0.8);
@@ -126,10 +123,9 @@
     opacity: 0.0,
   });
   const cardMesh = new THREE.Mesh(cardGeometry, cardMaterial);
-  cardMesh.position.set(0, 0, 0);
   anchor.group.add(cardMesh);
 
-  // ---- CHAUCER CUT-OUT (A BIT SMALLER & CLOSER TO THE CARD) ----
+  // ---- CHAUCER CUT-OUT ----
   const textureLoader = new THREE.TextureLoader();
   const chaucerTexture = textureLoader.load("./chaucer.png");
   const chaucerMaterial = new THREE.MeshBasicMaterial({
@@ -138,21 +134,13 @@
     side: THREE.DoubleSide,
   });
 
-  // Slightly smaller so it feels less "zoomed in"
-  const chaucerWidth = 0.4;
-  const chaucerHeight = 0.6;
-  const chaucerGeometry = new THREE.PlaneGeometry(
-    chaucerWidth,
-    chaucerHeight
-  );
+  const chaucerGeometry = new THREE.PlaneGeometry(0.4, 0.6);
   const chaucerMesh = new THREE.Mesh(chaucerGeometry, chaucerMaterial);
-
-  // Closer to the card (less distance = less visible wobble)
   chaucerMesh.position.set(0.03, 0.05, 0.08);
   chaucerMesh.rotation.y = THREE.MathUtils.degToRad(-8);
   anchor.group.add(chaucerMesh);
 
-  // ---- TEXT PANEL (WELCOME MESSAGE) ----
+  // ---- UPDATED TEXT PANEL (Blue background, Helvetica font, white text) ----
   function createTextPanel() {
     const canvas = document.createElement("canvas");
     canvas.width = 2048;
@@ -161,33 +149,25 @@
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Panel background
-    ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
-    ctx.roundRect(40, 40, canvas.width - 80, canvas.height - 80, 60);
+    // Background: postcard blue (#5980b3)
+    ctx.fillStyle = "#5980b3";
+    ctx.roundRect(0, 0, canvas.width, canvas.height, 50);
     ctx.fill();
 
-    // Border
-    ctx.lineWidth = 10;
-    ctx.strokeStyle = "#f5e3a1";
-    ctx.stroke();
-
-    // Text
+    // Text: white Helvetica
     ctx.fillStyle = "#ffffff";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-
-    ctx.font = "bold 90px 'Georgia', 'Times New Roman', serif";
+    ctx.font = "bold 110px Helvetica, Arial, sans-serif";
     ctx.fillText(
       "Welcome to the University",
       canvas.width / 2,
       canvas.height / 2 - 70
     );
-
-    ctx.font = "bold 90px 'Georgia', 'Times New Roman', serif";
     ctx.fillText(
-      "of Freiburg for NCS 2026!",
+      "of Freiburg for NCS 2026",
       canvas.width / 2,
-      canvas.height / 2 + 50
+      canvas.height / 2 + 70
     );
 
     const texture = new THREE.CanvasTexture(canvas);
@@ -196,12 +176,12 @@
     const material = new THREE.MeshBasicMaterial({
       map: texture,
       transparent: true,
-      opacity: 0, // START INVISIBLE (for fade-in)
+      opacity: 0, // start invisible
       side: THREE.DoubleSide,
     });
 
     const aspect = canvas.width / canvas.height;
-    const width = 0.75; // a bit smaller
+    const width = 0.7;
     const height = width / aspect;
     const geometry = new THREE.PlaneGeometry(width, height);
     const mesh = new THREE.Mesh(geometry, material);
@@ -209,10 +189,14 @@
   }
 
   const textPanel = createTextPanel();
-  textPanel.position.set(0, -0.33, 0.11);
+
+  // 🟦 Move the text panel near Chaucer’s hand
+  // Adjust these numbers to fine-tune its placement relative to the postcard.
+  textPanel.position.set(0.25, -0.05, 0.09);
+  textPanel.rotation.y = THREE.MathUtils.degToRad(-8);
   anchor.group.add(textPanel);
 
-  // ---- FADE-IN CONTROL FOR TEXT ----
+  // ---- Fade-in control ----
   let fadeInText = false;
   let textOpacity = 0;
 
@@ -228,7 +212,7 @@
     textPanel.material.opacity = 0;
   };
 
-  // ---- ANIMATION LOOP ----
+  // ---- Animation loop ----
   const clock = new THREE.Clock();
 
   const start = async () => {
@@ -241,16 +225,14 @@
       const delta = clock.getDelta();
       const t = clock.elapsedTime;
 
-      // Small, gentle bobbing – toned down so it feels less erratic
       const zBase = 0.08;
       const zOffset = Math.sin(t * 1.5) * 0.01;
       chaucerMesh.position.z = zBase + zOffset;
-      textPanel.position.z = 0.11 + zOffset * 1.1;
+      textPanel.position.z = 0.09 + zOffset * 1.1;
 
       chaucerMesh.rotation.y =
         THREE.MathUtils.degToRad(-8) + Math.sin(t * 1.2) * 0.04;
 
-      // TEXT FADE-IN (around 1 second)
       if (fadeInText && textOpacity < 1) {
         textOpacity += delta * 1.2;
         if (textOpacity > 1) textOpacity = 1;
